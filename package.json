@@ -1,0 +1,24 @@
+{
+  "name": "fragments",
+  "version": "1.0.0",
+  "description": "Fragments back-end API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stephcollins/fragments.git"
+  },
+  "keywords": [],
+  "author": "Stephanie Collins",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/stephcollins/fragments/issues"
+  },
+  "homepage": "https://github.com/stephcollins/fragments#readme",
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}
