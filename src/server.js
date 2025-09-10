@@ -17,6 +17,11 @@ const server = stoppable(
   app.listen(port, () => {
     // Log a message that the server has started, and which port it's using.
     logger.info(`Server started on port ${port}`);
+
+    // ✅ Only dump env when explicitly in debug mode
+    if ((process.env.LOG_LEVEL || '').toLowerCase() === 'debug') {
+      logger.debug({ env: process.env }, 'process.env');
+    }
   })
 );
 
