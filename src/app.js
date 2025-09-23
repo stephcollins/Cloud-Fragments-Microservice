@@ -28,10 +28,16 @@ app.use(passport.initialize());
 app.use('/', require('./routes'));
 
 // 404 handler
+
+// Add 404 middleware to handle any requests for resources that can't be found can't be found
 app.use((req, res) => {
+  // Pass along an error object to the error-handling middleware
   res.status(404).json({
     status: 'error',
-    error: { message: 'not found', code: 404 },
+    error: {
+      message: 'not found',
+      code: 404,
+    },
   });
 });
 
