@@ -8,9 +8,10 @@ const passport = require('passport');
 const authenticate = require('./auth');
 
 const logger = require('./logger');
-const pino = require('pino-http')({
-  logger,
-});
+const pino = require('pino-http')({ logger });
+
+// Response helpers
+const { createErrorResponse } = require('./response');
 
 const app = express();
 
@@ -28,17 +29,8 @@ app.use(passport.initialize());
 app.use('/', require('./routes'));
 
 // 404 handler
-
-// Add 404 middleware to handle any requests for resources that can't be found can't be found
 app.use((req, res) => {
-  // Pass along an error object to the error-handling middleware
-  res.status(404).json({
-    status: 'error',
-    error: {
-      message: 'not found',
-      code: 404,
-    },
-  });
+  res.status(404).json(createErrorResponse(404, 'not found'));
 });
 
 // Error handler
@@ -51,10 +43,7 @@ app.use((err, req, res, next) => {
     logger.error({ err }, `Error processing request`);
   }
 
-  res.status(status).json({
-    status: 'error',
-    error: { message, code: status },
-  });
+  res.status(status).json(createErrorResponse(status, message));
 });
 
 module.exports = app;
