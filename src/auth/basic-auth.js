@@ -1,5 +1,5 @@
 const auth = require('http-auth');
-const passport = require('passport'); // stays here!
+//const passport = require('passport'); // stays here!
 const authPassport = require('http-auth-passport');
 const authorize = require('./auth-middleware');
 const logger = require('../logger');

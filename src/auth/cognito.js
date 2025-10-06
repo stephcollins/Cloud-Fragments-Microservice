@@ -1,4 +1,4 @@
-const passport = require('passport'); // stays here!
+//const passport = require('passport'); // stays here!
 const BearerStrategy = require('passport-http-bearer').Strategy;
 const { CognitoJwtVerifier } = require('aws-jwt-verify');
 const authorize = require('./auth-middleware');
