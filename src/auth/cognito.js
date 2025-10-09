@@ -1,4 +1,4 @@
-//const passport = require('passport'); // stays here!
+// const passport = require('passport'); // stays here!
 const BearerStrategy = require('passport-http-bearer').Strategy;
 const { CognitoJwtVerifier } = require('aws-jwt-verify');
 const authorize = require('./auth-middleware');
@@ -11,7 +11,7 @@ if (!(process.env.AWS_COGNITO_POOL_ID && process.env.AWS_COGNITO_CLIENT_ID)) {
 const jwtVerifier = CognitoJwtVerifier.create({
   userPoolId: process.env.AWS_COGNITO_POOL_ID,
   clientId: process.env.AWS_COGNITO_CLIENT_ID,
-  tokenUse: 'id',
+  tokenUse: 'access', // ✅ FIXED — must verify the Access Token, not ID token
 });
 
 logger.info('Configured to use AWS Cognito for Authorization');
@@ -33,5 +33,5 @@ module.exports.strategy = () =>
     }
   });
 
-// ✅ Updated per README
+// ✅ Keep this line for consistency with the rest of your project
 module.exports.authenticate = () => authorize('bearer');
