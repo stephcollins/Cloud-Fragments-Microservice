@@ -1,35 +1,28 @@
-# 🐳 Dockerfile for Fragments Microservice
-# This Dockerfile builds a Docker image for the fragments Node.js server
-
-# 1️⃣ Base image with Node.js (use same version as your local machine)
-FROM node:22.12.0
-
-# 2️⃣ Metadata about the image
-LABEL maintainer="Stephanie Collins <stephcollins@senecapolytechnic.ca>"
-LABEL description="Fragments Node.js Microservice for Cloud Programming Lab 5"
-
-# 3️⃣ Environment variables
-ENV PORT=8080
-ENV NPM_CONFIG_LOGLEVEL=warn
-ENV NPM_CONFIG_COLOR=false
-
-# 4️⃣ Set working directory inside the container
+# 🐳 Optimized Multi-Stage Dockerfile for Fragments Microservice
+# Step 1 — Build dependencies
+FROM node:22.12.0 AS build
 WORKDIR /app
 
-# 5️⃣ Copy dependency files first (for caching efficiency)
+# Copy package files and install only what's needed for production
 COPY package*.json ./
+RUN npm ci --omit=dev
 
-# 6️⃣ Install dependencies
-RUN npm install
+# Copy the rest of the app
+COPY . .
 
-# 7️⃣ Copy source code
-COPY ./src ./src
+# Step 2 — Lightweight production image
+FROM node:22.12.0-slim
+WORKDIR /app
 
-# 8️⃣ Copy .htpasswd file if using Basic Auth (optional)
-COPY ./tests/.htpasswd ./tests/.htpasswd
+# Copy from the build stage
+COPY --from=build /app /app
 
-# 9️⃣ Expose port 8080 (the app’s listening port)
+# Set environment variables
+ENV NODE_ENV=production \
+    PORT=8080 \
+    LOG_LEVEL=debug \
+    HTPASSWD_FILE=tests/.htpasswd
+
+# Expose the port and start the app
 EXPOSE 8080
-
-# 🔟 Start the app
 CMD ["npm", "start"]
