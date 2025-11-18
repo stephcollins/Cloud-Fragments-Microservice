@@ -23,10 +23,10 @@ const rawBody = () =>
     },
   });
 
-// ✅ GET /v1/fragments
-router.get('/fragments', require('./get'));
+// ✅ Mount the router from get.js, which includes / and /:id
+router.use('/fragments', require('./get'));
 
-// ✅ POST /v1/fragments — using raw body parser
+// ✅ POST /v1/fragments
 router.post('/fragments', rawBody(), require('./post'));
 
 module.exports = router;

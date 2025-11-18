@@ -1,3 +1,4 @@
+// src/routes/api/post.js
 const { Fragment } = require('../../model/fragment');
 const { createSuccessResponse, createErrorResponse } = require('../../response');
 const logger = require('../../logger');
@@ -12,23 +13,36 @@ module.exports = async (req, res) => {
     const type = req.headers['content-type'];
     if (!type || !Fragment.isSupportedType(type)) {
       logger.warn({ type }, 'Unsupported content type');
-      return res.status(415).json(createErrorResponse(415, 'Unsupported Content-Type'));
+      return res
+        .status(415)
+        .json(createErrorResponse(415, 'Unsupported Content-Type'));
     }
 
     // Ensure body was parsed as a Buffer
     if (!Buffer.isBuffer(req.body)) {
       logger.error('Request body is not a Buffer');
-      return res.status(400).json(createErrorResponse(400, 'Invalid request body'));
+      return res
+        .status(400)
+        .json(createErrorResponse(400, 'Invalid request body'));
     }
 
-    // Create and save fragment
+    // ✅ Ensure ownerId is always a hashed string for consistency
+    const rawUser =
+      req.user?.email ||
+      req.user?.id ||
+      req.user?.hash ||
+      (typeof req.user === 'string' ? req.user : JSON.stringify(req.user));
+
+    const ownerId = Fragment.createOwnerId(rawUser);
+
+    // ✅ Create and save fragment (data first)
     const fragment = new Fragment({
-      ownerId: req.user,
+      ownerId,
       type: contentType.parse(type).type,
       size: req.body.length,
     });
-    await fragment.save();
-    await fragment.setData(req.body);
+
+    await fragment.setData(req.body); // setData() also saves metadata
 
     // Set Location header with API_URL or fallback to host
     const baseUrl = process.env.API_URL || `http://${req.headers.host}`;
