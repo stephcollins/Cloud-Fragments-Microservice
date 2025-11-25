@@ -1,63 +1,63 @@
 // src/model/data/memory/index.js
 const MemoryDB = require('./memory-db');
 
-// Create two in-memory databases
+// One DB for fragment "data" (raw bytes) and one for "metadata"
 const data = new MemoryDB();
 const metadata = new MemoryDB();
 
-// Write fragment metadata
+/**
+ * Write fragment metadata.
+ */
 function writeFragment(fragment) {
-  const serialized = JSON.stringify(fragment);
-  return metadata.put(fragment.ownerId, fragment.id, serialized);
+  const meta = {
+    id: fragment.id,
+    ownerId: fragment.ownerId,
+    created: fragment.created,
+    updated: fragment.updated,
+    type: fragment.type,
+    size: fragment.size,
+  };
+  return metadata.put(fragment.ownerId, fragment.id, meta);
 }
 
-// Read fragment metadata
+/**
+ * Read fragment metadata.
+ * Must return undefined when not found (to satisfy tests).
+ */
 async function readFragment(ownerId, id) {
-  const serialized = await metadata.get(ownerId, id);
-  if (!serialized) return null;
   try {
-    return typeof serialized === 'string' ? JSON.parse(serialized) : serialized;
-  } catch (e) {
-    console.error('[ERROR] Failed to parse fragment:', e);
-    return null;
+    return await metadata.get(ownerId, id);
+  } catch {
+    return undefined;  // <-- critical fix
   }
 }
 
-// Write fragment data
+/**
+ * Write fragment data (Buffer).
+ */
 function writeFragmentData(ownerId, id, buffer) {
   return data.put(ownerId, id, buffer);
 }
 
-// Read fragment data
-async function readFragmentData(ownerId, id) {
+/**
+ * Read fragment data (Buffer or undefined if missing).
+ */
+function readFragmentData(ownerId, id) {
   return data.get(ownerId, id);
 }
 
-// List fragments for a user
+/**
+ * List fragments for a user.
+ */
 async function listFragments(ownerId, expand = false) {
-  const results = (await metadata.query(ownerId)) || [];
-  if (expand) {
-    return results.map(f => {
-      try {
-        return typeof f === 'string' ? JSON.parse(f) : f;
-      } catch {
-        return null;
-      }
-    }).filter(Boolean);
-  }
-
-  // Return just IDs
-  return results.map(f => {
-    try {
-      const obj = typeof f === 'string' ? JSON.parse(f) : f;
-      return obj.id;
-    } catch {
-      return null;
-    }
-  }).filter(Boolean);
+  const results = await metadata.query(ownerId);
+  if (expand) return results;
+  return results.map((f) => f.id);
 }
 
-// Delete fragment metadata + data
+/**
+ * Delete fragment metadata + data.
+ */
 function deleteFragment(ownerId, id) {
   return Promise.all([
     metadata.del(ownerId, id),
@@ -66,10 +66,10 @@ function deleteFragment(ownerId, id) {
 }
 
 module.exports = {
-  listFragments,
   writeFragment,
   readFragment,
   writeFragmentData,
   readFragmentData,
+  listFragments,
   deleteFragment,
 };

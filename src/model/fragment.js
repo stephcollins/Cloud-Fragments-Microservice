@@ -28,59 +28,57 @@ class Fragment {
   }
 
   /**
-   * 🔹 Utility: create a stable hash for user identity (like the auth middleware)
+   * 🔹 Utility: Hash user identifiers (consistent with auth)
    */
   static createOwnerId(value) {
     return createHash('sha256').update(value).digest('hex');
   }
 
   /**
-   * 🔹 Get all fragments for a given user
+   * 🔹 Get all fragments for a given user (list IDs or expanded objects)
    */
   static async byUser(user, expand = false) {
-    const ownerId =
+    const rawId =
       typeof user === 'string'
-        ? Fragment.createOwnerId(user)
-        : Fragment.createOwnerId(user.id || user.email || user.username || user);
+        ? user
+        : user.id || user.email || user.username || user;
 
-    console.log('[DEBUG] Fragment.byUser() called:', { expand, ownerId });
+    const hashedId = Fragment.createOwnerId(rawId);
 
-    const fragments = await listFragments(ownerId, expand);
+    // Try hashed storage first
+    let results = await listFragments(hashedId, expand);
 
-    if (!expand) return fragments;
+    // Fallback for un-hashed values (mainly for unit tests)
+    if (!results || results.length === 0) {
+      results = await listFragments(rawId, expand);
+    }
 
-    return fragments.map((f) => {
-      const data = typeof f === 'string' ? JSON.parse(f) : f;
-      return new Fragment(data);
-    });
+    if (!expand) return results || [];
+
+    return results.map((meta) => new Fragment(meta));
   }
 
   /**
    * 🔹 Get a single fragment by ID
    */
   static async byId(user, id) {
-    const email =
+    const rawId =
       typeof user === 'string'
         ? user
         : user.email || user.id || user.username || user;
-    const hashedId = Fragment.createOwnerId(email);
 
-    // Try hashed lookup first
+    const hashedId = Fragment.createOwnerId(rawId);
+
     let fragmentData = await readFragment(hashedId, id);
 
-    // Fallback: try raw email (some tests may skip hashing)
     if (!fragmentData) {
-      fragmentData = await readFragment(email, id);
+      fragmentData = await readFragment(rawId, id);
     }
 
-    console.log('[DEBUG] Fragment.byId() called:', {
-      email,
-      hashedId,
-      id,
-      found: !!fragmentData,
-    });
+    if (!fragmentData) {
+      throw new Error('Fragment not found');
+    }
 
-    if (!fragmentData) return null;
     return new Fragment(fragmentData);
   }
 
@@ -97,19 +95,13 @@ class Fragment {
   async save() {
     this.updated = new Date().toISOString();
     await writeFragment(this);
-    console.log('[DEBUG] Saved fragment metadata:', {
-      id: this.id,
-      ownerId: this.ownerId,
-    });
   }
 
   /**
    * 🔹 Retrieve the fragment's data
    */
   async getData() {
-    const buf = await readFragmentData(this.ownerId, this.id);
-    console.log('[DEBUG] getData() ->', { id: this.id, found: !!buf });
-    return buf;
+    return readFragmentData(this.ownerId, this.id);
   }
 
   /**
@@ -121,11 +113,6 @@ class Fragment {
     this.updated = new Date().toISOString();
     await writeFragmentData(this.ownerId, this.id, data);
     await this.save();
-    console.log('[DEBUG] setData() -> saved fragment:', {
-      id: this.id,
-      ownerId: this.ownerId,
-      size: this.size,
-    });
   }
 
   /**

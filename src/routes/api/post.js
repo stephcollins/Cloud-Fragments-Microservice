@@ -4,55 +4,44 @@ const { createSuccessResponse, createErrorResponse } = require('../../response')
 const logger = require('../../logger');
 const contentType = require('content-type');
 
-/**
- * Handle POST requests to create a new fragment
- */
 module.exports = async (req, res) => {
   try {
-    // Ensure request has a valid Content-Type header
+    // 1️⃣ Validate Content-Type
     const type = req.headers['content-type'];
     if (!type || !Fragment.isSupportedType(type)) {
-      logger.warn({ type }, 'Unsupported content type');
-      return res
-        .status(415)
-        .json(createErrorResponse(415, 'Unsupported Content-Type'));
+      return res.status(415).json(createErrorResponse(415, 'Unsupported Content-Type'));
     }
 
-    // Ensure body was parsed as a Buffer
+    // 2️⃣ Ensure body is a Buffer
     if (!Buffer.isBuffer(req.body)) {
-      logger.error('Request body is not a Buffer');
-      return res
-        .status(400)
-        .json(createErrorResponse(400, 'Invalid request body'));
+      return res.status(400).json(createErrorResponse(400, 'Invalid request body; expected Buffer'));
     }
 
-    // ✅ Ensure ownerId is always a hashed string for consistency
-    const rawUser =
-      req.user?.email ||
-      req.user?.id ||
-      req.user?.hash ||
-      (typeof req.user === 'string' ? req.user : JSON.stringify(req.user));
+    // 3️⃣ Get user email from req.user (middleware already decoded Basic Auth)
+    if (!req.user?.email) {
+      return res.status(401).json(createErrorResponse(401, 'Unauthorized'));
+    }
 
-    const ownerId = Fragment.createOwnerId(rawUser);
+    // 4️⃣ Hash email using Fragment.createOwnerId() (MATCHES fragment.js behavior)
+    const ownerId = Fragment.createOwnerId(req.user.email);
 
-    // ✅ Create and save fragment (data first)
+    // 5️⃣ Create Fragment metadata entry
     const fragment = new Fragment({
       ownerId,
       type: contentType.parse(type).type,
       size: req.body.length,
     });
 
-    await fragment.setData(req.body); // setData() also saves metadata
+    // 6️⃣ Save both metadata + data (Buffer)
+    await fragment.setData(req.body);
 
-    // Set Location header with API_URL or fallback to host
+    // 7️⃣ Build Location header
     const baseUrl = process.env.API_URL || `http://${req.headers.host}`;
-    const location = new URL(`/v1/fragments/${fragment.id}`, baseUrl).toString();
-
-    logger.info({ fragment }, 'Fragment created successfully');
-
-    // Respond with 201 Created
+    const location = `${baseUrl}/v1/fragments/${fragment.id}`;
+    
     res.setHeader('Location', location);
     res.status(201).json(createSuccessResponse({ fragment }));
+
   } catch (err) {
     logger.error({ err }, 'Error creating fragment');
     res.status(500).json(createErrorResponse(500, err.message));
