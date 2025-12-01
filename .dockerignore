@@ -10,3 +10,4 @@ eslint.config.mjs
 .prettier*
 jest*
 !tests/.htpasswd
+!.htpasswd

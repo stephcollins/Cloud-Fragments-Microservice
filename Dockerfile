@@ -21,7 +21,7 @@ COPY --from=build /app /app
 ENV NODE_ENV=production \
     PORT=8080 \
     LOG_LEVEL=debug \
-    HTPASSWD_FILE=tests/.htpasswd
+    HTPASSWD_FILE=.htpasswd
 
 # Expose the port and start the app
 EXPOSE 8080
