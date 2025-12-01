@@ -7,7 +7,12 @@
     "containerDefinitions": [
         {
             "cpu": 256,
-            "environment": [],
+            "environment": [
+                {
+                    "name": "AWS_S3_BUCKET_NAME",
+                    "value": "sccollins1-fragments"
+                }
+            ],
             "environmentFiles": [],
             "essential": true,
             "image": "stephcollins/fragments:latest",
