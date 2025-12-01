@@ -3,26 +3,25 @@
 FROM node:22.12.0 AS build
 WORKDIR /app
 
-# Copy package files and install only what's needed for production
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-# Copy the rest of the app
 COPY . .
 
-# Step 2 — Lightweight production image
+# Step 2 — Production image
 FROM node:22.12.0-slim
 WORKDIR /app
 
-# Copy from the build stage
 COPY --from=build /app /app
 
-# Set environment variables
+# Environment variables
 ENV NODE_ENV=production \
-    PORT=8080 \
+    PORT=80 \
     LOG_LEVEL=debug \
     HTPASSWD_FILE=.htpasswd
 
-# Expose the port and start the app
-EXPOSE 8080
+# Expose production port
+EXPOSE 80
+
+# Start server
 CMD ["npm", "start"]
