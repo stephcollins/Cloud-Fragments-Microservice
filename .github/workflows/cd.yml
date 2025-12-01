@@ -59,6 +59,9 @@ jobs:
             PORT=80
             HTPASSWD_FILE=.htpasswd
             AWS_REGION=us-east-1
+            API_URL=http://fragments-lb-1434230665.us-east-1.elb.amazonaws.com
+            AWS_COGNITO_POOL_ID=${{ secrets.AWS_COGNITO_POOL_ID }}
+            AWS_COGNITO_CLIENT_ID=${{ secrets.AWS_COGNITO_CLIENT_ID }}
 
       # ⭐ NEW: Deploy new task definition to ECS
       - name: Deploy Amazon ECS task definition
