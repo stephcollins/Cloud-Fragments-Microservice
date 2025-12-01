@@ -60,6 +60,7 @@ jobs:
             HTPASSWD_FILE=.htpasswd
             AWS_REGION=us-east-1
             API_URL=http://fragments-lb-1434230665.us-east-1.elb.amazonaws.com
+            AWS_S3_BUCKET_NAME=sccollins1-fragments
             
 
       # ⭐ NEW: Deploy new task definition to ECS
