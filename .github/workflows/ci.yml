@@ -51,32 +51,67 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      # Instead of doing npm ci + npm test separately,
-      # we can use npm install-ci-test to handle both
       - name: Install node dependencies and run tests
         run: npm install-ci-test
 
+  # -------------------------------------------------------
+  # 🔥 NEW: Integration Tests (Docker + LocalStack + DynamoDB + Hurl)
+  # -------------------------------------------------------
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install all dependencies (including dev deps for Hurl)
+        run: npm install
+
+      - name: Make setup script executable
+        run: chmod +x ./scripts/local-aws-setup.sh
+
+      # Spin up LocalStack + DynamoDB + Fragments container
+      - name: Build containers
+        run: docker compose up -d
+
+      - name: Wait for LocalStack
+        run: sleep 10
+
+      - name: Setup AWS resources in LocalStack
+        run: ./scripts/local-aws-setup.sh
+
+      - name: Run integration tests (Hurl)
+        run: npm run test:integration
+
+  # -------------------------------------------------------
+  # Docker Hub Build
+  # -------------------------------------------------------
   docker-hub:
     name: Build and Push to Docker Hub
-    # Only run if lint, dockerfile-lint, and unit-tests all succeed
-    needs: [lint, dockerfile-lint, unit-tests]
+    # NEW: Includes integration-tests as required dependency
+    needs: [lint, dockerfile-lint, unit-tests, integration-tests]
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Set up buildx for multi-platform Docker builds
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Log in to Docker Hub using encrypted secrets
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Build and push the Docker image to Docker Hub
       - name: Build and push
         env:
           DOCKERHUB_REPO: stephcollins/fragments
@@ -84,4 +119,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: ${{ env.DOCKERHUB_REPO }}:${{ env.SHA_TAG }}, ${{ env.DOCKERHUB_REPO }}:main, ${{ env.DOCKERHUB_REPO }}:latest
+          tags: |
+            ${{ env.DOCKERHUB_REPO }}:${{ env.SHA_TAG }},
+            ${{ env.DOCKERHUB_REPO }}:main,
+            ${{ env.DOCKERHUB_REPO }}:latest

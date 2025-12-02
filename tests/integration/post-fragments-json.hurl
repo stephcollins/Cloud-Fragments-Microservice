@@ -1,12 +1,25 @@
-# tests/integration/post-fragments-json.hurl
-# Confirm that posting JSON fragments is NOT supported
-# and returns 415 Unsupported Media Type
+# Lab 10: JSON fragments supported
 
 POST http://localhost:8080/v1/fragments
 Content-Type: application/json
 [BasicAuth]
 user1@email.com:password1
-`{"message":"hello world"}`
+{"message":"hello world"}
 
-# Expect failure (JSON not supported)
-HTTP/1.1 415
+HTTP/1.1 201
+[Asserts]
+jsonpath "$.status" == "ok"
+header "Location" exists
+
+# Save the Location header into a variable called "loc"
+[Captures]
+loc: header "Location"
+
+# Use the captured variable
+GET {{loc}}
+[BasicAuth]
+user1@email.com:password1
+
+HTTP/1.1 200
+[Asserts]
+header "Content-Type" == "application/json"

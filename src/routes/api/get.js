@@ -31,6 +31,52 @@ router.get('/', async (req, res) => {
   }
 });
 
+
+
+/**
+ * GET /v1/fragments/:id/info - Return fragment metadata only
+ */
+router.get('/:id/info', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    let fragment;
+
+    // Try to load the fragment; map missing to 404
+    try {
+      fragment = await Fragment.byId(req.user, id);
+    } catch (err) {
+      if (err.message === 'Fragment not found') {
+        return res
+          .status(404)
+          .json(createErrorResponse(404, 'Fragment not found'));
+      }
+      throw err;
+    }
+
+    // Return ONLY metadata, not data
+    res.status(200).json(
+      createSuccessResponse({
+        fragment: {
+          id: fragment.id,
+          ownerId: fragment.ownerId,
+          created: fragment.created,
+          updated: fragment.updated,
+          type: fragment.type,
+          size: fragment.size,
+        },
+      })
+    );
+  } catch (err) {
+    logger.error({ err }, 'Error retrieving fragment metadata');
+    res
+      .status(500)
+      .json(createErrorResponse(500, 'Unable to retrieve fragment metadata'));
+  }
+});
+
+
+
 /**
  * GET /v1/fragments/:id - Retrieve a specific fragment by ID
  */
