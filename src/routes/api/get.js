@@ -11,16 +11,7 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const expand = req.query.expand === '1' || req.query.expand === 'true';
-
-    // ✅ Log the authenticated user to confirm identity being used
-    logger.debug({ user: req.user }, 'Authenticated user debug');
-
     const fragments = await Fragment.byUser(req.user, expand);
-
-    logger.debug(
-      { expand, count: fragments.length },
-      'Returning fragments for current user'
-    );
 
     res.status(200).json(createSuccessResponse({ fragments }));
   } catch (err) {
@@ -31,10 +22,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-
-
 /**
- * GET /v1/fragments/:id/info - Return fragment metadata only
+ * GET /v1/fragments/:id/info - Return metadata only
  */
 router.get('/:id/info', async (req, res) => {
   const { id } = req.params;
@@ -42,19 +31,14 @@ router.get('/:id/info', async (req, res) => {
   try {
     let fragment;
 
-    // Try to load the fragment; map missing to 404
     try {
       fragment = await Fragment.byId(req.user, id);
-    } catch (err) {
-      if (err.message === 'Fragment not found') {
-        return res
-          .status(404)
-          .json(createErrorResponse(404, 'Fragment not found'));
-      }
-      throw err;
+    } catch {
+      return res
+        .status(404)
+        .json(createErrorResponse(404, 'Fragment not found'));
     }
 
-    // Return ONLY metadata, not data
     res.status(200).json(
       createSuccessResponse({
         fragment: {
@@ -75,44 +59,74 @@ router.get('/:id/info', async (req, res) => {
   }
 });
 
-
-
 /**
- * GET /v1/fragments/:id - Retrieve a specific fragment by ID
+ * GET /v1/fragments/:id(.ext)? - Retrieve raw or converted fragment data
  */
 router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-
   try {
-    let fragment;
+    let { id } = req.params;
+    let ext = null;
 
-    // 🔹 Try to load the fragment, and map "Fragment not found" to 404
-    try {
-      fragment = await Fragment.byId(req.user, id);
-    } catch (err) {
-      if (err.message === 'Fragment not found') {
-        return res
-          .status(404)
-          .json(createErrorResponse(404, 'Fragment not found'));
-      }
-      throw err; // Any other error becomes 500 below
+    // Detect extension: e.g., abc.html -> id = abc, ext = html
+    const match = id.match(/^([^.]+)\.(.+)$/);
+    if (match) {
+      id = match[1];
+      ext = match[2].toLowerCase();
     }
 
-    // ✅ Retrieve fragment data
+    // Load fragment
+    let fragment;
+    try {
+      fragment = await Fragment.byId(req.user, id);
+    } catch {
+      return res
+        .status(404)
+        .json(createErrorResponse(404, 'Fragment not found'));
+    }
+
     const data = await fragment.getData();
 
-    // ✅ Determine response type based on Accept header
-    const accepts = req.headers.accept || '*/*';
-    if (accepts === '*/*' || accepts.includes(fragment.type)) {
+    // No extension → raw fragment
+    if (!ext) {
       res.setHeader('Content-Type', fragment.type);
       res.setHeader('Content-Length', fragment.size);
       return res.status(200).send(data);
     }
 
-    // ✅ Otherwise, return JSON metadata
-    res.status(200).json(createSuccessResponse({ fragment }));
+    // ----------------------------------------
+    // NEW FIX: Block non-image → image conversions
+    // ----------------------------------------
+    const IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif'];
+    const targetIsImage = IMAGE_EXTS.includes(ext.toLowerCase());
+    const sourceIsImage = fragment.mimeType.startsWith('image/');
+
+    if (targetIsImage && !sourceIsImage) {
+      return res
+        .status(415)
+        .json(
+          createErrorResponse(
+            415,
+            `Conversion from ${fragment.type} to .${ext} is not supported`
+          )
+        );
+    }
+
+    // Perform conversion
+    try {
+      const converted = await fragment.convert(ext);
+
+      res.setHeader('Content-Type', converted.type);
+      res.setHeader('Content-Length', converted.data.length);
+      return res.status(200).send(converted.data);
+
+    } catch (err) {
+      return res
+        .status(415)
+        .json(createErrorResponse(415, err.message));
+    }
+
   } catch (err) {
-    logger.error({ err }, 'Error retrieving fragment by ID');
+    logger.error({ err }, 'Error retrieving or converting fragment');
     res
       .status(500)
       .json(createErrorResponse(500, 'Unable to retrieve fragment'));
@@ -120,7 +134,7 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
- * DELETE /v1/fragments/:id - Delete a specific fragment by ID
+ * DELETE /v1/fragments/:id - Delete fragment
  */
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
@@ -128,28 +142,16 @@ router.delete('/:id', async (req, res) => {
   try {
     let fragment;
 
-    // Try to load the fragment first so we know it exists
     try {
       fragment = await Fragment.byId(req.user, id);
-    } catch (err) {
-      // Our Fragment.byId throws "Fragment not found" for missing fragments
-      if (err.message === 'Fragment not found') {
-        return res
-          .status(404)
-          .json(createErrorResponse(404, 'Fragment not found'));
-      }
-      throw err;
+    } catch {
+      return res
+        .status(404)
+        .json(createErrorResponse(404, 'Fragment not found'));
     }
 
-    // Use the fragment's ownerId (hashed) + id for deletion
     await Fragment.delete(fragment.ownerId, fragment.id);
 
-    logger.debug(
-      { ownerId: fragment.ownerId, id: fragment.id },
-      'Deleted fragment'
-    );
-
-    // 200 OK, no extra body needed for the lab, but we return a success envelope
     res.status(200).json(createSuccessResponse());
   } catch (err) {
     logger.error({ err }, 'Error deleting fragment');

@@ -1,6 +1,9 @@
-// src/model/fragment.js
 const { randomUUID, createHash } = require('crypto');
 const contentType = require('content-type');
+const sharp = require('sharp');
+const yaml = require('js-yaml');
+const marked = require('marked');
+
 const {
   readFragment,
   writeFragment,
@@ -9,6 +12,44 @@ const {
   listFragments,
   deleteFragment,
 } = require('./data');
+
+// Supported media types for Assignment 3
+const SUPPORTED_TYPES = [
+  // Text formats
+  'text/plain',
+  'text/markdown',
+  'text/html',
+  'text/csv',
+
+  // Data formats
+  'application/json',
+  'application/yaml',
+
+  // Images
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/avif',
+  'image/gif',
+];
+
+// Map extensions → MIME types
+const EXT_TO_TYPE = {
+  txt: 'text/plain',
+  md: 'text/markdown',
+  html: 'text/html',
+  csv: 'text/csv',
+  json: 'application/json',
+  yaml: 'application/yaml',
+  yml: 'application/yaml',
+
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  avif: 'image/avif',
+};
 
 class Fragment {
   constructor({ id, ownerId, created, updated, type, size = 0 }) {
@@ -102,22 +143,109 @@ class Fragment {
   }
 
   get formats() {
-  return ['text/plain', 'text/markdown', 'application/json'];
-}
+    return SUPPORTED_TYPES;
+  }
 
   static isSupportedType(value) {
-    // 💥 Updated to allow JSON + Markdown (needed for Lab 10)
-    const supported = [
-      'text/plain',
-      'application/json',
-      'text/markdown'
-    ];
     try {
       const { type } = contentType.parse(value);
-      return supported.includes(type);
+      return SUPPORTED_TYPES.includes(type);
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Convert fragment data to another type based on extension
+   */
+  async convert(ext) {
+    const targetType = EXT_TO_TYPE[ext];
+
+    if (!targetType) {
+      throw new Error(`Unsupported conversion extension: .${ext}`);
+    }
+
+    const data = await this.getData();
+    const sourceType = this.mimeType;
+
+    // If same type → no conversion
+    if (sourceType === targetType) {
+      return { type: targetType, data };
+    }
+
+    // ------------ TEXT CONVERSIONS ------------
+
+    if (sourceType === 'text/plain') {
+      return { type: 'text/plain', data };
+    }
+
+    if (sourceType === 'text/markdown') {
+      if (targetType === 'text/plain') {
+        return { type: 'text/plain', data: Buffer.from(data.toString(), 'utf-8') };
+      }
+      if (targetType === 'text/html') {
+        return { type: 'text/html', data: Buffer.from(marked.parse(data.toString())) };
+      }
+    }
+
+    if (sourceType === 'application/json') {
+      const obj = JSON.parse(data.toString());
+
+      if (targetType === 'text/plain') {
+        return { type: 'text/plain', data: Buffer.from(JSON.stringify(obj)) };
+      }
+      if (targetType === 'application/yaml') {
+        return { type: 'application/yaml', data: Buffer.from(yaml.dump(obj)) };
+      }
+    }
+
+    if (sourceType === 'application/yaml') {
+      const obj = yaml.load(data.toString());
+
+      if (targetType === 'application/json') {
+        return { type: 'application/json', data: Buffer.from(JSON.stringify(obj)) };
+      }
+      if (targetType === 'text/plain') {
+        return { type: 'text/plain', data: Buffer.from(yaml.dump(obj)) };
+      }
+    }
+
+    if (sourceType === 'text/csv') {
+      const csvStr = data.toString();
+
+      if (targetType === 'text/plain') {
+        return { type: 'text/plain', data: Buffer.from(csvStr) };
+      }
+      if (targetType === 'application/json') {
+        const rows = csvStr.trim().split('\n').map((r) => r.split(','));
+        const headers = rows.shift();
+        const json = rows.map((r) =>
+          Object.fromEntries(r.map((value, i) => [headers[i], value]))
+        );
+        return { type: 'application/json', data: Buffer.from(JSON.stringify(json)) };
+      }
+    }
+
+    // ------------ IMAGE CONVERSIONS (sharp) ------------
+
+    if (sourceType.startsWith('image/')) {
+      const sharpImg = sharp(data);
+
+      switch (targetType) {
+        case 'image/png':
+          return { type: targetType, data: await sharpImg.png().toBuffer() };
+        case 'image/jpeg':
+          return { type: targetType, data: await sharpImg.jpeg().toBuffer() };
+        case 'image/webp':
+          return { type: targetType, data: await sharpImg.webp().toBuffer() };
+        case 'image/gif':
+          return { type: targetType, data: await sharpImg.gif().toBuffer() };
+        case 'image/avif':
+          return { type: targetType, data: await sharpImg.avif().toBuffer() };
+      }
+    }
+
+    throw new Error(`Conversion from ${sourceType} to .${ext} is not supported`);
   }
 }
 

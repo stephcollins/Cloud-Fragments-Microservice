@@ -15,7 +15,7 @@ const rawBody = () =>
     limit: '5mb',
     type: (req) => {
       try {
-        const { type } = contentType.parse(req);
+        const { type } = contentType.parse(req.headers['content-type']);
         return Fragment.isSupportedType(type);
       } catch {
         return false;
@@ -23,10 +23,13 @@ const rawBody = () =>
     },
   });
 
-// ✅ Mount the router from get.js, which includes / and /:id
+// Mount the router from get.js (GET, DELETE, info, conversions)
 router.use('/fragments', require('./get'));
 
-// ✅ POST /v1/fragments
+// POST /v1/fragments
 router.post('/fragments', rawBody(), require('./post'));
+
+// PUT /v1/fragments/:id
+router.put('/fragments/:id', rawBody(), require('./put'));
 
 module.exports = router;
