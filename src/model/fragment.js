@@ -2,7 +2,8 @@ const { randomUUID, createHash } = require('crypto');
 const contentType = require('content-type');
 const sharp = require('sharp');
 const yaml = require('js-yaml');
-const marked = require('marked');
+const { marked } = require('marked');
+
 
 const {
   readFragment,

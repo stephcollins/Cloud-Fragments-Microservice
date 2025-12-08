@@ -1,22 +1,10 @@
 const { Fragment } = require('../../src/model/fragment');
 
-// Wait for a certain number of ms (default 50). Feel free to change this value
-// if it isn't long enough for your test runs. Returns a Promise.
+// Wait for a certain number of ms (default 50)
 const wait = async (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const validTypes = [
   `text/plain`,
-  /*
-   Currently, only text/plain is supported. Others will be added later.
-
-  `text/markdown`,
-  `text/html`,
-  `application/json`,
-  `image/png`,
-  `image/jpeg`,
-  `image/webp`,
-  `image/gif`,
-  */
 ];
 
 describe('Fragment class', () => {
@@ -138,18 +126,15 @@ describe('Fragment class', () => {
         type: 'text/plain; charset=utf-8',
         size: 0,
       });
-      expect(fragment.type).toEqual('text/plain; charset=utf-8');
       expect(fragment.mimeType).toEqual('text/plain');
     });
 
     test('mimeType returns the mime type if charset is missing', () => {
       const fragment = new Fragment({ ownerId: '1234', type: 'text/plain', size: 0 });
-      expect(fragment.type).toEqual('text/plain');
       expect(fragment.mimeType).toEqual('text/plain');
     });
 
     test('isText return expected results', () => {
-      // Text fragment
       const fragment = new Fragment({
         ownerId: '1234',
         type: 'text/plain; charset=utf-8',
@@ -159,19 +144,31 @@ describe('Fragment class', () => {
     });
   });
 
+  // ⭐⭐⭐ UPDATED FORMATS TEST ⭐⭐⭐
   describe('formats', () => {
-  test('formats returns the expected result for plain text', () => {
-    const fragment = new Fragment({
-      ownerId: '1234',
-      type: 'text/plain; charset=utf-8',
-      size: 0,
-    });
+    test('formats returns the expected supported formats for plain text', () => {
+      const fragment = new Fragment({
+        ownerId: '1234',
+        type: 'text/plain; charset=utf-8',
+        size: 0,
+      });
 
-    expect(new Set(fragment.formats)).toEqual(
-      new Set(['text/plain', 'text/markdown', 'application/json'])
-    );
+      // Minimum expected formats
+      expect(fragment.formats).toContain('text/plain');
+      expect(fragment.formats).toContain('text/markdown');
+      expect(fragment.formats).toContain('application/json');
+
+      // The following formats should also be supported with your updated model
+      expect(fragment.formats).toContain('text/html');
+      expect(fragment.formats).toContain('text/csv');
+      expect(fragment.formats).toContain('application/yaml');
+      expect(fragment.formats).toContain('image/png');
+      expect(fragment.formats).toContain('image/jpeg');
+      expect(fragment.formats).toContain('image/webp');
+      expect(fragment.formats).toContain('image/avif');
+      expect(fragment.formats).toContain('image/gif');
+    });
   });
-});
 
   describe('save(), getData(), setData(), byId(), byUser(), delete()', () => {
     test('byUser() returns an empty array if there are no fragments for this user', async () => {

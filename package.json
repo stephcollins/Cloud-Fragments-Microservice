@@ -49,7 +49,7 @@
     "http-auth": "^4.2.1",
     "http-auth-passport": "^1.0.7",
     "js-yaml": "^4.1.1",
-    "marked": "^17.0.1",
+    "marked": "^4.3.0",
     "passport": "^0.7.0",
     "passport-http-bearer": "^1.0.1",
     "pino": "^9.9.4",
